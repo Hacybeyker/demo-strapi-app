@@ -122,6 +122,10 @@ coverage
 ############################
 
 .env
+.env.*
+node_modules/
+.cache
+*.log
 license.txt
 exports
 .strapi
