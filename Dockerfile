@@ -14,9 +14,8 @@ RUN npm install -g pnpm
 FROM base AS deps
 WORKDIR /opt/app
 COPY package.json pnpm-lock.yaml ./
-# Usamos el pnpm que instalamos globalmente
-# Usamos --frozen-lockfile para una instalación limpia y reproducible
-RUN pnpm install --frozen-lockfile
+# ¡MODIFICADO! Añadimos reintentos y tiempo de espera
+RUN pnpm install --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000
 
 # --- Etapa 3: Construir la Aplicación ---
 # Esta etapa construye el panel de admin de Strapi
@@ -38,7 +37,8 @@ ENV NODE_ENV=production
 
 # Instalamos SÓLO las dependencias de PRODUCCIÓN
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --prod --frozen-lockfile
+# ¡MODIFICADO! Añadimos reintentos y tiempo de espera
+RUN pnpm install --prod --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000
 
 # Copiamos los artefactos construidos de la etapa 'builder'
 COPY --from=builder /opt/app/build ./build
