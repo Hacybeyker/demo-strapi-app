@@ -2,20 +2,19 @@
 # Usamos node:22-alpine, una imagen ligera y moderna
 FROM node:22-alpine AS base
 # Añadimos dependencias para 'sharp' (imágenes) y 'gcompat'
-RUN apk add --no-cache libc6-compat gcompat
-
 # ¡LA CORRECCIÓN CLAVE!
 # En lugar de 'corepack enable' (que falla la red),
 # instalamos 'pnpm' globalmente usando npm.
-RUN npm install -g pnpm
+RUN apk add --no-cache libc6-compat gcompat && \
+	npm install -g pnpm
 
 # --- Etapa 2: Instalar Dependencias (Dev + Prod) ---
 # Esta etapa solo instala las dependencias para que Docker pueda cachearlas
 FROM base AS deps
 WORKDIR /opt/app
 COPY package.json pnpm-lock.yaml ./
-# ¡MODIFICADO! Añadimos reintentos y tiempo de espera
-RUN pnpm install --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000
+# ¡MODIFICADO! Añadimos --unsafe-perm para permitir los build scripts
+RUN pnpm install --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000 --unsafe-perm
 
 # --- Etapa 3: Construir la Aplicación ---
 # Esta etapa construye el panel de admin de Strapi
@@ -37,8 +36,8 @@ ENV NODE_ENV=production
 
 # Instalamos SÓLO las dependencias de PRODUCCIÓN
 COPY package.json pnpm-lock.yaml ./
-# ¡MODIFICADO! Añadimos reintentos y tiempo de espera
-RUN pnpm install --prod --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000
+# ¡MODIFICADO! Añadimos --unsafe-perm para permitir los build scripts
+RUN pnpm install --prod --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000 --unsafe-perm
 
 # Copiamos los artefactos construidos de la etapa 'builder'
 COPY --from=builder /opt/app/build ./build
