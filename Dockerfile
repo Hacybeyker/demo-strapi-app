@@ -14,8 +14,13 @@ RUN npm install -g pnpm
 FROM base AS deps
 WORKDIR /opt/app
 COPY package.json pnpm-lock.yaml ./
-# ¡MODIFICADO! Añadimos --ignore-scripts=false DIRECTAMENTE al comando
-RUN pnpm install --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000 --ignore-scripts=false
+
+# --- ¡LA NUEVA SOLUCIÓN REAL! ---
+# Creamos un archivo .npmrc para forzar a pnpm a correr los scripts
+RUN echo "ignore-scripts=false" > .npmrc
+
+# Instalamos (con reintentos por tu red inestable)
+RUN pnpm install --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000
 
 # --- Etapa 3: Construir la Aplicación ---
 # Esta etapa construye el panel de admin de Strapi
@@ -23,6 +28,8 @@ FROM base AS builder
 WORKDIR /opt/app
 # Copiamos las dependencias PRIMERO
 COPY --from=deps /opt/app/node_modules ./node_modules
+# Copiamos el .npmrc que creamos
+COPY --from=deps /opt/app/.npmrc ./
 # AHORA copiamos el resto del código fuente
 COPY . .
 ENV NODE_ENV=production
@@ -37,8 +44,13 @@ ENV NODE_ENV=production
 
 # Instalamos SÓLO las dependencias de PRODUCCIÓN
 COPY package.json pnpm-lock.yaml ./
-# ¡MODIFICADO! Añadimos --ignore-scripts=false DIRECTAMENTE al comando
-RUN pnpm install --prod --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000 --ignore-scripts=false
+
+# --- ¡LA NUEVA SOLUCIÓN REAL! ---
+# Creamos un archivo .npmrc para forzar a pnpm a correr los scripts
+RUN echo "ignore-scripts=false" > .npmrc
+
+# Instalamos (con reintentos por tu red inestable)
+RUN pnpm install --prod --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000
 
 # Copiamos los artefactos construidos de la etapa 'builder'
 # Esta vez, /opt/app/build SÍ existirá
