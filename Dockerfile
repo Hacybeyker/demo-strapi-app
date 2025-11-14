@@ -14,8 +14,13 @@ RUN npm install -g pnpm
 FROM base AS deps
 WORKDIR /opt/app
 COPY package.json pnpm-lock.yaml ./
-# ¡MODIFICADO! Añadimos --unsafe-perm para permitir los build scripts
-RUN pnpm install --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000 --unsafe-perm
+
+# ¡LA VERDADERA SOLUCIÓN!
+# Forzamos a pnpm a SÍ ejecutar build scripts (para sharp, better-sqlite3, etc.)
+RUN pnpm config set ignore-scripts false
+
+# Instalamos (con reintentos por tu red inestable)
+RUN pnpm install --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000
 
 # --- Etapa 3: Construir la Aplicación ---
 # Esta etapa construye el panel de admin de Strapi
@@ -37,10 +42,16 @@ ENV NODE_ENV=production
 
 # Instalamos SÓLO las dependencias de PRODUCCIÓN
 COPY package.json pnpm-lock.yaml ./
-# ¡MODIFICADO! Añadimos --unsafe-perm para permitir los build scripts
-RUN pnpm install --prod --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000 --unsafe-perm
+
+# ¡LA VERDADERA SOLUCIÓN!
+# Forzamos a pnpm a SÍ ejecutar build scripts
+RUN pnpm config set ignore-scripts false
+
+# Instalamos (con reintentos por tu red inestable)
+RUN pnpm install --prod --frozen-lockfile --fetch-retries 10 --fetch-timeout 120000
 
 # Copiamos los artefactos construidos de la etapa 'builder'
+# Esta vez, /opt/app/build SÍ existirá
 COPY --from=builder /opt/app/build ./build
 COPY --from=builder /opt/app/dist ./dist
 COPY --from=builder /opt/app/.strapi ./.strapi
