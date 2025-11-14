@@ -1,8 +1,10 @@
 # --- Etapa 1: Definir la Base ---
 # Usamos node:22-alpine, una imagen ligera y moderna
 FROM node:22-alpine AS base
-# Añadimos dependencias para 'sharp' (imágenes) y 'gcompat'
-RUN apk add --no-cache libc6-compat gcompat
+
+# ¡¡¡ESTA ES LA LÍNEA QUE LO ARREGLA TODO!!!
+# Añadimos las herramientas de compilación (C++, Python, Make) y la librería VIPS para 'sharp'
+RUN apk add --no-cache libc6-compat gcompat vips-dev build-base gcc g++ make python3
 
 # Instalamos 'pnpm' globalmente
 RUN npm install -g pnpm
@@ -11,10 +13,10 @@ RUN npm install -g pnpm
 # Esta etapa solo instala las dependencias para que Docker pueda cachearlas
 FROM base AS deps
 WORKDIR /opt/app
-# Copiamos el .npmrc PRIMERO para que pnpm lo lea
+# Copiamos el .npmrc (que tiene los reintentos de red y el ignore-scripts=false)
 COPY .npmrc ./
 COPY package.json pnpm-lock.yaml ./
-# Instalamos. pnpm leerá .npmrc y ejecutará los scripts.
+# Instalamos. pnpm leerá .npmrc y AHORA SÍ podrá compilar 'sharp'
 RUN pnpm install --frozen-lockfile
 
 # --- Etapa 3: Construir la Aplicación ---
@@ -41,7 +43,7 @@ ENV NODE_ENV=production
 COPY .npmrc ./
 # Instalamos SÓLO las dependencias de PRODUCCIÓN
 COPY package.json pnpm-lock.yaml ./
-# pnpm leerá .npmrc y ejecutará los scripts
+# pnpm leerá .npmrc y AHORA SÍ podrá compilar 'sharp'
 RUN pnpm install --prod --frozen-lockfile
 
 # Copiamos los artefactos construidos de la etapa 'builder'
