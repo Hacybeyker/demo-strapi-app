@@ -31,6 +31,7 @@ COPY .npmrc ./
 COPY . .
 ENV NODE_ENV=production
 # Construimos el panel de admin de Strapi
+# Esto crea /opt/app/dist/ Y /opt/app/dist/build/
 RUN pnpm run build
 
 # --- Etapa 4: Imagen Final de Producción ---
@@ -46,10 +47,12 @@ COPY package.json pnpm-lock.yaml ./
 # pnpm leerá .npmrc y AHORA SÍ podrá compilar 'sharp'
 RUN pnpm install --prod --frozen-lockfile
 
+# --- ¡LA CORRECCIÓN GRACIAS A TI! ---
 # Copiamos los artefactos construidos de la etapa 'builder'
-# Esta vez, /opt/app/build SÍ existirá
-COPY --from=builder /opt/app/build ./build
+# ¡HEMOS ELIMINADO LA LÍNEA ERRÓNEA 'COPY ... /opt/app/build'!
+# La carpeta 'dist' contiene todo (backend y admin)
 COPY --from=builder /opt/app/dist ./dist
+# Copiamos el .strapi (que está en la raíz)
 COPY --from=builder /opt/app/.strapi ./.strapi
 # Copiamos la carpeta public
 COPY --from=builder /opt/app/public ./public
