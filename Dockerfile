@@ -47,7 +47,7 @@ COPY package.json pnpm-lock.yaml ./
 # pnpm leerá .npmrc y AHORA SÍ podrá compilar 'sharp'
 RUN pnpm install --prod --frozen-lockfile
 
-# --- ¡LA CORRECCIÓN FINAL (v9)! ---
+# --- ¡LA CORRECCIÓN FINAL (v10)! ---
 # Copiamos los artefactos construidos de la etapa 'builder'
 # La carpeta 'dist' contiene todo (backend y admin)
 COPY --from=builder /opt/app/dist ./dist
@@ -55,8 +55,9 @@ COPY --from=builder /opt/app/dist ./dist
 COPY --from=builder /opt/app/.strapi ./.strapi
 # Copiamos la carpeta public
 COPY --from=builder /opt/app/public ./public
-# ¡¡HEMOS ELIMINADO la línea incorrecta "COPY ... /opt/app/config"!!
-# La carpeta 'config' compilada ya está dentro de 'dist'
+# ¡¡AQUÍ ESTÁ LA LÍNEA QUE FALTABA (DE VERDAD)!!
+# Copiamos nuestro config/env/production/database.js en la carpeta dist/config/env/
+COPY --from=builder /opt/app/config/env ./dist/config/env
 
 
 # Exponemos el puerto de Strapi
