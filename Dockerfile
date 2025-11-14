@@ -2,11 +2,12 @@
 # Usamos node:22-alpine, una imagen ligera y moderna
 FROM node:22-alpine AS base
 # Añadimos dependencias para 'sharp' (imágenes) y 'gcompat'
+RUN apk add --no-cache libc6-compat gcompat
+
 # ¡LA CORRECCIÓN CLAVE!
 # En lugar de 'corepack enable' (que falla la red),
 # instalamos 'pnpm' globalmente usando npm.
-RUN apk add --no-cache libc6-compat gcompat && \
-	npm install -g pnpm
+RUN npm install -g pnpm
 
 # --- Etapa 2: Instalar Dependencias (Dev + Prod) ---
 # Esta etapa solo instala las dependencias para que Docker pueda cachearlas
