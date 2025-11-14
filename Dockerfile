@@ -1,54 +1,56 @@
 # --- Etapa 1: Definir la Base ---
-# Usamos Node.js 22 en Alpine para una imagen ligera
+# Usamos node:22-alpine, una imagen ligera y moderna
 FROM node:22-alpine AS base
+# Añadimos dependencias para 'sharp' (imágenes) y 'gcompat'
+RUN apk add --no-cache libc6-compat gcompat
 
-# Habilitamos pnpm
-RUN corepack enable
+# ¡LA CORRECCIÓN CLAVE!
+# En lugar de 'corepack enable' (que falla la red),
+# instalamos 'pnpm' globalmente usando npm.
+RUN npm install -g pnpm
 
-# --- Etapa 2: Instalar Dependencias ---
+# --- Etapa 2: Instalar Dependencias (Dev + Prod) ---
+# Esta etapa solo instala las dependencias para que Docker pueda cachearlas
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /opt/app
-
-# Copiamos solo los archivos de dependencias de pnpm
-COPY package.json pnpm-lock.yaml* ./
-
-# Instalamos dependencias (incluyendo 'sharp' para imágenes)
-RUN pnpm install
+COPY package.json pnpm-lock.yaml ./
+# Usamos el pnpm que instalamos globalmente
+# Usamos --frozen-lockfile para una instalación limpia y reproducible
+RUN pnpm install --frozen-lockfile
 
 # --- Etapa 3: Construir la Aplicación ---
-# Esta etapa compila el panel de admin de Strapi
+# Esta etapa construye el panel de admin de Strapi
 FROM base AS builder
 WORKDIR /opt/app
-
-# Copiamos las dependencias instaladas
+# Copiamos las dependencias PRIMERO
 COPY --from=deps /opt/app/node_modules ./node_modules
-# Copiamos el resto del código fuente
+# AHORA copiamos el resto del código fuente
 COPY . .
-
-# Seteamos el entorno a producción
 ENV NODE_ENV=production
-
-# Construimos el panel de admin
+# Construimos el panel de admin de Strapi
 RUN pnpm run build
 
 # --- Etapa 4: Imagen Final de Producción ---
+# Esta es la imagen final que correrá en Dokploy
 FROM base AS runner
 WORKDIR /opt/app
+ENV NODE_ENV=production
 
-# Copiamos los artefactos construidos
+# Instalamos SÓLO las dependencias de PRODUCCIÓN
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --prod --frozen-lockfile
+
+# Copiamos los artefactos construidos de la etapa 'builder'
 COPY --from=builder /opt/app/build ./build
 COPY --from=builder /opt/app/dist ./dist
-COPY --from=builder /opt/app/package.json ./package.json
 COPY --from=builder /opt/app/.strapi ./.strapi
-
-# Copiamos solo las dependencias de producción
-COPY --from=deps /opt/app/node_modules ./node_modules
-# Copiamos el directorio de uploads (si existe)
-COPY --from=builder /opt/app/public/uploads ./public/uploads
+# Copiamos la carpeta public, pero no los uploads (esos van en un volumen)
+COPY --from=builder /opt/app/public ./public
 
 # Exponemos el puerto de Strapi
 EXPOSE 1337
+# Definimos el volumen para que coincida con la UI de Dokploy
+VOLUME /opt/app/public/uploads
 
 # El comando para iniciar la aplicación
 CMD ["pnpm", "run", "start"]
